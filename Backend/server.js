@@ -22,7 +22,7 @@
 // app.use(cors(corsOptions));
 
 // const SECRET_KEY = "mysecretkey"; // يجب أن يكون ثابتًا ومخزنًا بشكل آمن
-
+ 
 
 // const saltRounds=8;
 
@@ -177,107 +177,139 @@
 
 
 
-
+// // عملنا import  لل module  الي رح نستخدمها 
+// // كلهم  تحيل مكتبات لانهم مش build in 
 require('dotenv').config();
 const express = require('express');
-const jwt = require('jsonwebtoken'); // لإنشاء التوكن
-const cookieParser = require('cookie-parser');
-const bcrypt = require('bcrypt'); // لتشفير كلمة المرور
+const jwt = require('jsonwebtoken'); // لتوليد التوكن JWT
+const cookieParser = require('cookie-parser'); // لمعالجة الكوكيز
+const bcrypt = require('bcrypt'); // لتشفير كلمات المرور
 const cors = require('cors');
 
-const PORT = 2700;
 const app = express();
+const PORT = 2795;
+const SECRET_KEY = "mysecretkey"; // يجب تخزينه بشكل آمن
+const saltRounds = 8;
 
-// إعدادات البارسين وتحويل الطلبات إلى JSON
-app.use(express.json());
-app.use(cookieParser());
-
-// إعدادات CORS لتتوافق مع جانب العميل
+// إعدادات CORS للسماح بتبادل البيانات مع الفرونتند
 const corsOptions = {
-  origin: 'http://localhost:5175', // تأكد أن هذا هو أصل تطبيق العميل
-  credentials: true, // للسماح بإرسال واستقبال الكوكيز
+    origin: 'http://localhost:5175',
+    credentials: true, // للسماح بإرسال واستقبال الكوكيز
 };
 app.use(cors(corsOptions));
 
-// المفتاح السري لتوقيع JWT (يجب تخزينه بشكل آمن)
-const SECRET_KEY = "mysecretkey";
-const saltRounds = 8;
+// استخدام ميدل وير لتحليل JSON والكوكيز
+app.use(express.json());
+app.use(cookieParser());
 
-// تخزين المستخدمين في الذاكرة (للأغراض التجريبية فقط)
+
+
+
+
+
+
+
+
+
+
+// //هون بدنا نعمل كود (login , signup , register) +medelware  حتى نعمل athu    
+// // لازم athu  نتاكد من (token user ) لما يعمل راوت لصفحة معينة  و يخزن في cookie
+// قاعدة بيانات وهمية للمستخدمين
 let Users = {};
 
-// مسار بسيط لعرض جميع المستخدمين (للتحقق)
+// عرض جميع المستخدمين (لأغراض الاختبار فقط)
+// //   ابلش اعرف الروتير الي عندي لاعرف لما  ادخل البايانات صح او لاء اتاكد فقط  انو يطبع كل اليوزير الي دخلناهم
+
 app.get('/', (req, res) => {
-  res.json(Users);
+    res.json(Users);
 });
 
-// تسجيل مستخدم جديد
+
+// تسجيل مستخدم جديد مع تخزين كلمة المرور المشفرة
 app.post('/register', async (req, res) => {
-  const { username, password } = req.body;
-  if (Users[username]) {
-    return res.status(400).json({ message: 'User already exists' });
-  }
-  
-  // تشفير كلمة المرور قبل التخزين
-  const hashedPassword = await bcrypt.hash(password, saltRounds);
-  Users[username] = { username, password: hashedPassword };
+ //  هسا اجا طلب محمل بودي و الهيدير و كل اشي من لافرونت و بدي  اوخد منو الاسم و كلمة المرور من البودي الي 
 
-  // إنشاء توكن JWT مع صلاحية لمدة ساعة
-  const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: '1h' });
-  // تخزين التوكن في الكوكيز
-  res.cookie('authToken', token, { httpOnly: true, secure: false, maxAge: 3600000 });
-  
-  res.json({ message: 'User registered successfully', token });
-});
+    const { username, password } = req.body;
 
-// تسجيل الدخول وإنشاء توكن JWT
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  const user = Users[username];
 
-  if (!user) {
-    return res.status(400).json({ message: 'User not found' });
-  }
-
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    return res.status(400).json({ message: 'Incorrect password' });
-  }
-
-  // إنشاء توكن JWT جديد عند تسجيل الدخول
-  const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: '1h' });
-  res.cookie('authToken', token, { httpOnly: true, secure: false, maxAge: 3600000 });
-  
-  res.json({ message: 'Login successful', token });
-});
-
-// middleware للتحقق من صلاحية التوكن
-const authenticateToken = (req, res, next) => {
-  const token = req.cookies.authToken;
-  if (!token) {
-    return res.status(401).json({ message: 'Access Denied: No token provided' });
-  }
-  jwt.verify(token, SECRET_KEY, (err, user) => {
-    if (err) {
-      return res.status(403).json({ message: 'Invalid or expired token' });
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Username and password are required' });
     }
-    req.user = user;
-    next();
-  });
+
+    
+    if (Users[username]) {
+        return res.status(400).json({ message: 'User already exists' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    Users[username] = { username, password: hashedPassword };
+
+    // إنشاء توكن JWT وتخزينه في الكوكيز
+    const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: '1h' });
+    res.cookie('authToken', token, { httpOnly: true, secure: false, maxAge: 3600000 });
+
+    res.json({ message: 'User registered successfully', token });
+});
+
+
+// تسجيل الدخول والتحقق من كلمة المرور
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    const user = Users[username];
+
+    if (!user) {
+        return res.status(400).json({ message: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+        return res.status(400).json({ message: 'Incorrect password' });
+    }
+
+    // إنشاء توكن JWT وتخزينه في الكوكيز
+    const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: '1h' });
+       // store  اعمل جينيريت للتوكين  من الي عبيتهم لاسم و سيكيور  
+
+    res.cookie('authToken', token, { httpOnly: true, secure: false, maxAge: 3600000 });
+
+    res.json({ message: 'Login successful', token });
+});
+
+
+// ميدل وير للتحقق من صحة التوكن
+// //middelware jwt to protect routes veryfy token 
+// //هون بتاكدلي انو من توكين لل يوزير 
+const authenticateToken = (req, res, next) => {
+    const token = req.cookies.authToken;
+
+    if (!token) {
+        return res.status(401).json({ message: 'Access Denied. No token provided' });
+    }
+
+    jwt.verify(token, SECRET_KEY, (error, user) => {
+        if (error) {
+            return res.status(403).json({ message: 'Expired or invalid token' });
+        }
+        req.user = user;
+        next();
+    });
 };
 
-// مسار الصفحة الشخصية (Profile) محمي بواسطة الـ middleware
-app.get('/profile', authenticateToken, (req, res) => {
-  res.json({ message: `Welcome ${req.user.username}, this is your profile page.` });
+
+// راوت محمي يحتاج إلى توكن للوصول إليه
+// //    لما يرتسلني لهذا الراوتير تاكد من التوكين و بعدها دخلني عليه
+ // middelware  تقع بين  الريكويست و الريسبونز فهو قبل   ما يرسل الرد الريسبونز بكون ماررر على ميديل هي توكن  
+app.get('/protected', authenticateToken, (req, res) => {
+    res.json({ message: `Welcome ${req.user.username}, you have access to protected data` });
 });
 
-// تسجيل الخروج: إزالة التوكن من الكوكيز
+// تسجيل الخروج بحذف الكوكيز
 app.post('/logout', (req, res) => {
-  res.clearCookie('authToken');
-  res.json({ message: 'Logout successful' });
+    res.clearCookie('authToken');
+    res.json({ message: 'Logout successful' });
 });
 
-// بدء الخادم على المنفذ المحدد
-app.listen(PORT, () =>
-  console.log(`Server running on http://localhost:${PORT}`)
-);
+// تشغيل السيرفر
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+});
